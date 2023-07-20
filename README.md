@@ -15,7 +15,5 @@ In this challenge, you have four Ubuntu 20.04 servers with IP addresses 34.219.2
     Network Security: Limit SSH access to one server, allowing access to the others via that server. Block unused and unnecessary ports for improved security.
 
 ### Infrastructure Design
-To understand the problem better, I visualize the infrastructure design in form of a Miro Board.
-
-[Infrastructure Design](https://miro.com/app/live-embed/uXjVM1iywAk=/?moveToViewport=-806,-1160,2508,2439&embedId=883790859261)
-
+To understand the problem better, I visualize the infrastructure design in form of a [Miro Board](https://miro.com/app/live-embed/uXjVM1iywAk=/?moveToViewport=-806,-1160,2508,2439&embedId=883790859261).
+![Image](/img/Infrastructure-Design.jpg)
