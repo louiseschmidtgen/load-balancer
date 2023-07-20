@@ -1,10 +1,13 @@
 # This make file simplifies the docker-compose operations
 # This make file allows you to specify a specific container to build by passing the option c=serverA for example
 
-.PHONY: build up start down destroy stop restart logs
+.PHONY: build build-no-cache up start down destroy stop restart sh ps logs
 
 build:
 	docker-compose -f docker-compose.yml build $(c)
+
+build-no-cache:
+	docker-compose -f docker-compose.yml build --no-cache $(c)
 
 up:
 	docker-compose -f docker-compose.yml up -d $(c)
@@ -24,6 +27,11 @@ stop:
 restart:
 	docker-compose -f docker-compose.yml stop $(c)
 	docker-compose -f docker-compose.yml up -d $(c)
+
+sh: 
+	docker-compose exec server bash
+ps:
+	docker ps
 
 logs:
 	docker-compose -f docker-compose.yml logs --tail=100 -f $(c)
