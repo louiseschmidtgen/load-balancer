@@ -10,13 +10,10 @@ WORKDIR /load-balancer/load-balancer
 COPY ./nrpe.cfg /etc/nagios/nrpe.cfg 
 
 # Nginx config
-
 COPY ./nginx.conf /etc/nginx/nginx.conf 
 
-# # Add the check_load_balancer command to nrpe.cfg using 'tee' command
-# RUN echo 'command[check_load_balancer]=/opt/nagios/plugins/check_by_ssh -H localhost -C "/load-balancer/load-balancer/monitor_script.sh"' | tee -a /etc/nagios/nrpe.cfg
 
-# COPY ./monitor_script.sh /load-balancer/load-balancer/monitor_script.sh 
+WORKDIR /load-balancer/load-balancer
 
 # Start the nagios-nrpe-server service
 CMD ["service", "nagios-nrpe-server", "start"]
