@@ -1,5 +1,5 @@
 # This make file simplifies the docker-compose operations
-# This make file allows you to specify a specific container to build by passing the option c=serverA for example
+# This make file allows you to specify a specific container to build by passing the option c=server-a for example
 
 .PHONY: build build-no-cache up start down destroy stop restart sh ps logs
 
@@ -9,6 +9,8 @@ build:
 build-no-cache:
 	docker-compose -f docker-compose.yml build --no-cache $(c)
 
+builder-prune:
+	docker builder prune
 up:
 	docker-compose -f docker-compose.yml up -d $(c)
 
@@ -35,13 +37,3 @@ ps:
 
 logs:
 	docker-compose -f docker-compose.yml logs --tail=100 -f $(c)
-
-# # Build the container
-# build: ## Build the container
-# 	docker build -t $(APP_NAME) .
-
-# build-nc: ## Build the container without caching
-# 	docker build --no-cache -t $(APP_NAME) .
-
-# run: ## Run container on port configured in `config.env`
-# 	docker run -i -t --rm --env-file=./config.env -p=$(PORT):$(PORT) --name="$(APP_NAME)" $(APP_NAME)

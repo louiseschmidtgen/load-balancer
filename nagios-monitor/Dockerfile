@@ -2,15 +2,24 @@ FROM jasonrivers/nagios:latest
 
 WORKDIR /load-balancer/nagios-monitor
 
-# # Create Nagios configuration directories
-RUN mkdir -p /usr/local/nagios/etc/
-RUN mkdir -p /usr/local/nagios/var/
+# package nagios-nrpe-plugin is already installed in the manios/nagios:latest base image.
+RUN apt-get update && apt-get install -y build-essential nagios-nrpe-plugin nagios-plugins-contrib net-tools
+# nagios-nrpe nagios-plugins
 
 # Copy Nagios configuration files
+# CGI config in: /opt/nagios/etc/cgi.cfg
 
-COPY nagios.cfg /usr/local/nagios/etc/nagios.cfg
-COPY hosts.cfg /usr/local/nagios/etc/hosts.cfg
-COPY services.cfg /usr/local/nagios/etc/services.cfg
-COPY commands.cfg /usr/local/nagios/etc/commands.cfg
-COPY nagios.log /usr/local/nagios/var/nagios.log
+# /opt/nagios/libexec/check_nrpe
 
+COPY /nagios/config/nagios.cfg /opt/nagios/etc/nagios.cfg
+COPY /nagios/config/commands.cfg /opt/nagios/etc/objects/commands.cfg
+COPY /nagios/config/contacts.cfg /opt/nagios/etc/objects/contacts.cfg
+COPY /nagios/config/load-balancer.cfg /opt/nagios/etc/objects/load-balancer.cfg
+
+# COPY /nagios/plugins/check_load_balancer.sh /opt/Custom-Nagios-Plugins/check_load_balancer.sh
+# RUN chmod +x /opt/Custom-Nagios-Plugins/check_load_balancer.sh
+
+# Expose necessary ports for NRPE
+EXPOSE 5666
+
+# CMD ["/opt/nagios/bin/nagios", "/opt/nagios/etc/nagios.cfg"]
