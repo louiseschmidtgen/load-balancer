@@ -1,47 +1,19 @@
 FROM nginx:latest
 
-# RUN apt-get update && apt-get install -y \
-#     wget \
-#     build-essential \
-#     gawk \
-#     mawk \
-#     apt-utils \
-#     xinetd \
-#     gcc
+#Install necessary plugins for nagios monitoring
+RUN apt-get update && apt-get install -y build-essential nagios-nrpe-server nagios-plugins net-tools
+#listen for requests from nagios-monitor
 
-# # follows documentation on installing the plugin https://assets.nagios.com/downloads/nagioscore/docs/nrpe/NRPE.pdf
-# #install nagios plugins
-# RUN wget http://nagios-plugins.org/download/nagios-plugins-2.4.5.tar.gz && \
-#     tar xzf nagios-plugins-2.4.5.tar.gz 
+WORKDIR /load-balancer/load-balancer
 
-# RUN cd nagios-plugins-2.4.5 && \
-#     ./configure && \
-#     make && \
-#     make install
+# nrpe.cfg allowing traffic from nagios-monitor
+COPY ./nrpe.cfg /etc/nagios/nrpe.cfg 
 
-# # install nrpe daemon
-# RUN wget https://github.com/NagiosEnterprises/nrpe/releases/download/nrpe-4.0.2/nrpe-4.0.2.tar.gz && \
-#     tar xzf nrpe-4.0.2.tar.gz
-
-# RUN cd nrpe-nrpe-4.0.2 && \
-#     ./configure && \
-#     make all && \
-#     make install-groups-users && \
-#     make install && \
-#     make install-config && \
-#     # If you want NRPE to run per-connection under inetd, xinetd, launchd, systemd, smf, etc.
-#     # make install-inetd && \
-#     # If you want to run NRPE all the time under init, launchd, systemd, smf, etc   
-#     make install-init 
-
+# Nginx config
+COPY ./nginx.conf /etc/nginx/nginx.conf 
 
 
 WORKDIR /load-balancer/load-balancer
 
-
-# Add the check_load_balancer command to nrpe.cfg using 'tee' command
-# RUN echo 'command[check_load_balancer]=/opt/nagios/plugins/check_by_ssh -H localhost -C "/load-balancer/load-balancer/monitor_script.sh"' | tee -a /etc/nagios/nrpe.cfg
-
-# COPY ./monitor_script.sh /load-balancer/load-balancer/monitor_script.sh 
-
-COPY ./nginx.conf /etc/nginx/nginx.conf 
+# Start the nagios-nrpe-server service
+CMD ["service", "nagios-nrpe-server", "start"]

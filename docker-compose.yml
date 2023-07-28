@@ -5,10 +5,10 @@ services:
     build:
       context: ./server-a
       dockerfile: Dockerfile
-    restart: always  
+    restart: always
     ports:
       - "8080:80"
-    stdin_open: true 
+    stdin_open: true
     tty: true
 
   server-b:
@@ -17,10 +17,10 @@ services:
     build:
       context: ./server-b
       dockerfile: Dockerfile
-    restart: always  
+    restart: always
     ports:
       - "8081:80"
-    stdin_open: true 
+    stdin_open: true
     tty: true
   load-balancer:
     container_name: load-balancer
@@ -30,21 +30,24 @@ services:
       dockerfile: Dockerfile
     ports:
       - "60000-65000:60000-65000"
-    stdin_open: true 
-    tty: true    
-    depends_on:
-      - server-a
-      - server-b 
-  nagios-monitor:
-    container_name: nagios-monitor
-    image: nagios-monitor
-    build:
-      context: ./nagios-monitor
-      dockerfile: Dockerfile
-    stdin_open: true 
+    stdin_open: true
     tty: true
     depends_on:
       - server-a
       - server-b
+  nagios-monitor:
+    container_name: nagios-monitor
+    image: nagios-monitor
+    # platform: linux/arm64/v8
+    build:
+      context: ./nagios-monitor
+      dockerfile: Dockerfile
+    stdin_open: true
+    tty: true
+    ports:
+      - "8083:80"
+      - "5666:5666"
+    depends_on:
+      - server-a
+      - server-b
       - load-balancer
-
