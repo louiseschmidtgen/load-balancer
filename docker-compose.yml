@@ -8,9 +8,9 @@ services:
     restart: always
     ports:
       - "8080:80"
+      - "5668:5666" # Expose port 5666 for NRPE
     stdin_open: true
     tty: true
-
   server-b:
     container_name: server-b
     image: server-b
@@ -20,6 +20,7 @@ services:
     restart: always
     ports:
       - "8081:80"
+      - "5667:5666" # Expose port 5666 for NRPE
     stdin_open: true
     tty: true
   load-balancer:
@@ -47,6 +48,7 @@ services:
     tty: true
     ports:
       - "8083:80"
+      # - "5666:5666" # Expose port 5666 for NRPE
     depends_on:
       - server-a
       - server-b

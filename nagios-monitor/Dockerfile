@@ -20,6 +20,7 @@ COPY /nagios/config/load-balancer.cfg /opt/nagios/etc/objects/load-balancer.cfg
 # RUN chmod +x /opt/Custom-Nagios-Plugins/check_load_balancer.sh
 
 # Expose necessary ports for NRPE
-EXPOSE 5666
+# EXPOSE 5666
 
 # CMD ["/opt/nagios/bin/nagios", "/opt/nagios/etc/nagios.cfg"]
+
