@@ -15,11 +15,14 @@ COPY /nagios/config/nagios.cfg /opt/nagios/etc/nagios.cfg
 COPY /nagios/config/commands.cfg /opt/nagios/etc/objects/commands.cfg
 COPY /nagios/config/contacts.cfg /opt/nagios/etc/objects/contacts.cfg
 COPY /nagios/config/load-balancer.cfg /opt/nagios/etc/objects/load-balancer.cfg
+COPY /nagios/config/server-a.cfg /opt/nagios/etc/objects/server-a.cfg
+COPY /nagios/config/server-b.cfg /opt/nagios/etc/objects/server-b.cfg
 
 # COPY /nagios/plugins/check_load_balancer.sh /opt/Custom-Nagios-Plugins/check_load_balancer.sh
 # RUN chmod +x /opt/Custom-Nagios-Plugins/check_load_balancer.sh
 
 # Expose necessary ports for NRPE
-EXPOSE 5666
+# EXPOSE 5666
 
 # CMD ["/opt/nagios/bin/nagios", "/opt/nagios/etc/nagios.cfg"]
+
