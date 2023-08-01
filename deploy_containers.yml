@@ -1,0 +1,31 @@
+---
+- name: Deploy Docker Compose
+  hosts: all
+  become: yes
+  tasks:
+    - name: Install Docker and Docker Compose
+      apt:
+        name: "{{ item }}"
+        state: present
+      with_items:
+        - docker.io
+        - docker-compose
+      tags: [docker]
+
+    - name: Ensure Docker service is running
+      service:
+        name: docker
+        state: started
+      tags: [docker]
+
+    - name: Copy Docker Compose file
+      copy:
+        src: ./docker-compose.yml  # Replace with the actual path to your Docker Compose file
+        dest: /path/to/deploy/docker-compose.yml  # Replace with the desired destination on the server
+      tags: [docker]
+
+    - name: Deploy containers using Docker Compose
+      command: docker-compose -f ./docker-compose.yml up -d
+      args:
+        chdir: /path/to/deploy
+      tags: [docker]

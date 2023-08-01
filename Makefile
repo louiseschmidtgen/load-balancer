@@ -37,3 +37,6 @@ ps:
 
 logs:
 	docker-compose -f docker-compose.yml logs --tail=100 -f $(c)
+
+playbook:
+	ansible-playbook -i inventory.yml deploy_containers.yml
