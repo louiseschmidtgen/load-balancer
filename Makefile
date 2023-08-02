@@ -38,5 +38,30 @@ ps:
 logs:
 	docker-compose -f docker-compose.yml logs --tail=100 -f $(c)
 
-playbook:
-	ansible-playbook -i inventory.yml deploy_containers.yml
+playbook-load-balancer:
+	ansible-playbook -i inventory.yml playbook/deploy_containers.yml
+	ansible-playbook -i inventory.yml playbook/load-balancer.yml
+
+playbook-nagios-monitor:
+	ansible-playbook -i inventory.yml playbook/deploy_containers.yml
+	ansible-playbook -i inventory.yml playbook/nagios-monitor.yml
+
+playbook-server-a:
+	ansible-playbook -i inventory.yml playbook/deploy_containers.yml
+	ansible-playbook -i inventory.yml playbook/server-a.yml
+
+playbook-server-b:
+	ansible-playbook -i inventory.yml playbook/deploy_containers.yml
+	ansible-playbook -i inventory.yml playbook/server-b.yml
+
+playbook-all:
+	ansible-playbook -i inventory.yml playbook/deploy_containers.yml
+	ansible-playbook -i inventory.yml playbook/load-balancer.yml
+	ansible-playbook -i inventory.yml playbook/nagios-monitor.yml
+	ansible-playbook -i inventory.yml playbook/server-a.yml
+	ansible-playbook -i inventory.yml playbook/server-b.yml
+
+# Test SSH connectivity to each server
+test-ssh:
+	@echo "Testing SSH connectivity to servers:"
+	@ansible -i inventory.yml all -m ping

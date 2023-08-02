@@ -1,0 +1,20 @@
+- name: Deploy Nagios Monitor
+  hosts: nagios-monitor
+  become: yes
+  tasks:
+    - name: Ensure nagios-monitor directory exists
+      file:
+        path: /home/ubuntu/nagios-monitor
+        state: directory
+
+    - name: Copy nagios-monitor folder to the server
+      synchronize:
+        src: ./nagios-monitor
+        dest: /home/ubuntu/nagios-monitor
+        delete: yes
+        
+    - name: Build and Deploy containers for Nagios Monitor
+      command: docker-compose -f ./docker-compose.yml up -d nagios-monitor
+      args:
+        chdir: /home/ubuntu/
+      tags: [nagios-monitor, docker]

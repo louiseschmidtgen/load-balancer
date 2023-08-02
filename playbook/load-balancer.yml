@@ -1,0 +1,20 @@
+- name: Deploy Load Balancer
+  hosts: load-balancer
+  become: yes
+  tasks:
+    - name: Ensure load-balancer directory exists
+      file:
+        path: /home/ubuntu/load-balancer
+        state: directory
+
+    - name: Copy load-balancer folder to the server
+      synchronize:
+        src: ./load-balancer
+        dest: /home/ubuntu/load-balancer
+        delete: yes
+
+    - name: Build and Deploy containers for Load Balancer
+      command: docker-compose -f ./docker-compose.yml up -d load-balancer
+      args:
+        chdir: /home/ubuntu/
+      tags: [load-balancer, docker]

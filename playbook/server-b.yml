@@ -1,0 +1,22 @@
+- name: Deploy Server B Service
+  hosts: server-b
+  become: yes
+  roles:
+    - server-b
+  tasks:
+    - name: Ensure server-b directory exists
+      file:
+        path: /home/ubuntu/server-b
+        state: directory
+
+    - name: Copy server-a folder to the server
+      synchronize:
+        src: ./server-b
+        dest: /home/ubuntu/server-b
+        delete: yes
+        
+    - name: Build and Deploy Server A container
+      command: docker-compose -f ./docker-compose.yml up -d server-b
+      args:
+        chdir: /home/ubuntu/
+      tags: [server-b, docker]
