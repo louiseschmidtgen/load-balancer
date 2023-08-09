@@ -11,7 +11,7 @@
 
     - name: Copy server-a folder to the server
       synchronize:
-        src: ./server-b
+        src: ../server-b
         dest: /home/ubuntu/server-b
         delete: yes
         

@@ -9,7 +9,7 @@
 
     - name: Copy nagios-monitor folder to the server
       synchronize:
-        src: ./nagios-monitor
+        src: ../nagios-monitor
         dest: /home/ubuntu/nagios-monitor
         delete: yes
         

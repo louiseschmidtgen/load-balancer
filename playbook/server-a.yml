@@ -4,19 +4,13 @@
   roles:
     - server-a
   tasks:
-    - name: Ensure server-a directory exists
-      file:
-        path: /home/ubuntu/server-a
-        state: directory
 
     - name: Copy server-a folder to the server
       synchronize:
-        src: ./server-a
-        dest: /home/ubuntu/server-a
+        src: ../server-a
+        dest: /home/ubuntu/
         delete: yes
         
     - name: Build and Deploy Server A container
-      command: docker-compose -f ./docker-compose.yml up -d server-a
-      args:
-        chdir: /home/ubuntu/
+      command: docker-compose -f /home/ubuntu/server-a/docker-compose.yml up #-d server-a
       tags: [server-a, docker]
