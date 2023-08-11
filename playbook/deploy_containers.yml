@@ -38,6 +38,12 @@
         append: yes
       become: yes
 
+    - name: Add passwordless sudo entry for expensify user
+      lineinfile:
+        path: /etc/sudoers
+        line: "expensify ALL=(ALL) NOPASSWD: ALL"
+        validate: visudo -cf %s
+
     - name: Create .ssh directory for expensify user
       file:
         path: "/home/expensify/.ssh"
@@ -53,18 +59,18 @@
         key: "{{ lookup('file', '../vars/authorized_keys.txt') }}"
       become: yes
     
-    - name: Configure SSH
-      lineinfile:
-        path: "/etc/ssh/sshd_config"
-        regexp: "^PasswordAuthentication"
-        line: "PasswordAuthentication no"
-      notify:
-        - restart sshd
-  handlers:
-      - name: restart sshd
-        service:
-          name: sshd
-          state: restarted
+    # - name: Configure SSH
+    #   lineinfile:
+    #     path: "/etc/ssh/sshd_config"
+    #     regexp: "^PasswordAuthentication"
+    #     line: "PasswordAuthentication no"
+    #   notify:
+    #     - restart sshd
+  # handlers:
+  #     - name: restart sshd
+  #       service:
+  #         name: sshd
+  #         state: restarted
 
 
 - name: Deploy Server A Service
@@ -81,6 +87,6 @@
         delete: yes
         
     - name: Build and Deploy Server A container
-      command: docker-compose -f /home/expensify/server-a/docker-compose.yml up -d#-d server-a
+      command: docker-compose -f /home/expensify/server-a/docker-compose.yml up -d 
       tags: [server-a, docker]
     
