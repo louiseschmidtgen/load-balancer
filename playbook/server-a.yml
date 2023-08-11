@@ -1,0 +1,16 @@
+- name: Deploy Server A Service
+  hosts: server-a
+  become: yes
+  roles:
+    - server-a
+  tasks:
+
+    - name: Copy server-a folder to the server
+      synchronize:
+        src: ../server-a
+        dest: /home/ubuntu/
+        delete: yes
+        
+    - name: Build and Deploy Server A container
+      command: docker-compose -f /home/ubuntu/server-a/docker-compose.yml up #-d server-a
+      tags: [server-a, docker]

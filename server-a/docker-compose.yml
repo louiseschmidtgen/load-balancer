@@ -1,0 +1,17 @@
+version: "3"
+services:
+  server-a:
+    container_name: server-a
+    image: server-a
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "8080:80"
+      - "5668:5666" # Expose port 5666 for NRPE
+    stdin_open: true
+    tty: true
+networks:
+  custom_network:
+    driver: bridge

@@ -1,0 +1,10 @@
+all:
+  hosts:
+    server-a:
+      ansible_host: 34.219.237.131
+    server-b:
+      ansible_host: 35.86.172.0
+    load-balancer:
+      ansible_host: 54.212.209.5
+    nagios-monitor:
+      ansible_host: 35.87.133.164
