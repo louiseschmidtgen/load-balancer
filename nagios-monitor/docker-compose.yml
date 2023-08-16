@@ -12,10 +12,10 @@ services:
     ports:
       - "8083:80"
       # - "5666:5666" # Expose port 5666 for NRPE
-    networks:
-      - custom_network
+#     networks:
+#       - custom_network
 
-networks:
-  custom_network:
-    external:
-      name: custom_network
+# networks:
+#   custom_network:
+#     external:
+#       name: custom_network

@@ -4,79 +4,90 @@
   hosts: all
   become: yes
   tasks:
-    - name: Update package manager cache
-      apt:
-        update_cache: yes
+#     - name: Update package manager cache
+#       apt:
+#         update_cache: yes
 
-    - name: Install Docker and Docker Compose (Net-tools for debugging)
-      apt:
-        name: ['docker', 'docker-compose', 'net-tools']
-        state: present
-      tags: [docker]
-    # - name: Create custom network
-    #   command: docker network create custom_network
-    #   failed_when: "'network with name custom_network already exists' not in result.stderr"
-    #   ignore_errors: yes
-    #   register: result
-    - name: Start Docker Daemon
-      become: yes
-      service:
-        name: docker
-        state: started
-
-    # - name: Create custom network
-    #   docker_network:
-    #     name: custom_network
-    #     driver: bridge
-    #   tags: [docker]
-
-    - name: Create expensify user
-      user:
-        name: expensify
-        state: present
-        shell: /bin/sh
-
-    - name: Add expensify user to sudo group
-      user:
-        name: expensify
-        groups: sudo
-        append: yes
-      become: yes
-
-    - name: Add passwordless sudo entry for expensify user
-      lineinfile:
-        path: /etc/sudoers
-        line: "expensify ALL=(ALL) NOPASSWD: ALL"
-        validate: visudo -cf %s
-
-    - name: Create .ssh directory for expensify user
-      file:
-        path: "/home/expensify/.ssh"
-        state: directory
-        owner: expensify
-        group: expensify
-        mode: '0700'
-
-    - name: Ensure authorized keys are present for expensify user
-      authorized_key:
-        user: expensify
-        state: present
-        key: "{{ lookup('file', '../vars/authorized_keys.txt') }}"
-      become: yes
+#     - name: Install Docker and Docker Compose (Net-tools for debugging)
+#       apt:
+#         name: ['docker', 'docker-compose', 'net-tools']
+#         state: present
+#       tags: [docker]
+#     # - name: Create custom network
+#     #   command: docker network create custom_network
+#     #   failed_when: "'network with name custom_network already exists' not in result.stderr"
+#     #   ignore_errors: yes
+#     #   register: result
+#     - name: Start Docker Daemon
+#       become: yes
+#       service:
+#         name: docker
+#         state: started
     
-    - name: Configure SSH
-      lineinfile:
-        path: "/etc/ssh/sshd_config"
-        regexp: "^PasswordAuthentication"
-        line: "PasswordAuthentication no"
-      notify:
-        - restart sshd
-  handlers:
-      - name: restart sshd
-        service:
-          name: sshd
-          state: restarted
 
+    # - name: Extract Swarm Token
+    #   set_fact:
+    #     swarm_token: "{{ swarm_init_result.stdout_lines[-1].split()[-1] }}"
+    #   when: "'server-a' in inventory_hostname"
+
+    # - name: Join Docker Swarm (on worker nodes)
+    #   command: "docker swarm join --token {{ swarm_token }} {{ hostvars['server-a'].ansible_host }}:2377"
+    #   when: "'server-a' not in inventory_hostname"
+    #   vars:
+    #     swarm_token: "{{ hostvars['server-a'].swarm_token }}"
+
+#     # - name: Create custom network
+#     #   docker_network:
+#     #     name: custom_network
+#     #     driver: bridge
+#     #   tags: [docker]
+
+#     - name: Create expensify user
+#       user:
+#         name: expensify
+#         state: present
+#         shell: /bin/sh
+
+#     - name: Add expensify user to sudo group
+#       user:
+#         name: expensify
+#         groups: sudo
+#         append: yes
+#       become: yes
+
+#     - name: Add passwordless sudo entry for expensify user
+#       lineinfile:
+#         path: /etc/sudoers
+#         line: "expensify ALL=(ALL) NOPASSWD: ALL"
+#         validate: visudo -cf %s
+
+#     - name: Create .ssh directory for expensify user
+#       file:
+#         path: "/home/expensify/.ssh"
+#         state: directory
+#         owner: expensify
+#         group: expensify
+#         mode: '0700'
+
+#     - name: Ensure authorized keys are present for expensify user
+#       authorized_key:
+#         user: expensify
+#         state: present
+#         key: "{{ lookup('file', '../vars/authorized_keys.txt') }}"
+#       become: yes
+    
+#     - name: Configure SSH
+#       lineinfile:
+#         path: "/etc/ssh/sshd_config"
+#         regexp: "^PasswordAuthentication"
+#         line: "PasswordAuthentication no"
+#       notify:
+#         - restart sshd
+#   handlers:
+#       - name: restart sshd
+#         service:
+#           name: sshd
+#           state: restarted
 
 - name: Deploy Server A Service
   hosts: server-a
@@ -84,28 +95,41 @@
   roles:
     - server-a
   tasks:
-
-    - name: Create custom network
-      command: docker --debug network create custom_network
-
     - name: Copy server-a folder to the server
       synchronize:
         src: ../server-a
         dest: /home/expensify/
         delete: yes
-        
-    - name: Build and Deploy Server A container
-      command: docker-compose -f /home/expensify/server-a/docker-compose.yml up -d 
-      tags: [server-a, docker]
-      register: server-a-deploy
-      until: server-a-deploy.stdout.find('Server A is running on port 8080') != -1
-      retries: 5
-      delay: 5
-      failed_when: False
 
-    - name: Log Server A Deploy
-      debug:
-        msg: "{{ server-a-deploy.stdout }}"
+    - name: Initialize Docker Swarm (on server-a)
+      command: docker swarm init
+        
+    - name: Deploy Docker Stack
+      command: docker stack deploy -c /home/expensify/server-a/docker-compose.yml server_a_stack
+      tags: [docker, server-a]
+
+- name: Join Docker Swarm (on worker nodes)
+  hosts: [server-b, load-balancer, nagios-monitor]
+  become: yes
+  tasks:
+    - name: Retrieve Docker Swarm join token from manager node
+      command: docker swarm join-token -q worker
+      register: swarm_token
+      delegate_to: server-a
+      
+
+    - name: Join Docker Swarm on worker nodes
+      docker_swarm:
+        join_token: "{{ swarm_token.stdout.strip() }}"
+        timeout: 300
+
+
+    # - name: Join Docker Swarm on worker nodes
+    #   command: docker swarm join --token {{ swarm_token.stdout.strip() }} 3.129.63.238:2377
+
+
+
+
 - name: Deploy Server B Service
   hosts: server-b
   become: yes
@@ -120,7 +144,7 @@
         delete: yes
         
     - name: Build and Deploy Server B container
-      command: docker-compose -f /home/expensify/server-b/docker-compose.yml up -d 
+      command: docker stack deploy -c /home/expensify/server-b/docker-compose.yml server_b_stack
       tags: [server-b, docker]
 
 
@@ -138,10 +162,11 @@
         delete: yes
         
     - name: Build and Deploy load-balancer container
-      command: docker-compose -f /home/expensify/load-balancer/docker-compose.yml up -d --verbose
+      command: docker stack deploy -c  /home/expensify/load-balancer/docker-compose.yml load_balancer_stack
       tags: [load-balancer, docker]
       environment:
         COMPOSE_HTTP_TIMEOUT: 240  # or a higher value if needed
+
 
 
 - name: Deploy nagios-monitor Service
@@ -158,8 +183,9 @@
         delete: yes
         
     - name: Build and Deploy nagios-monitor container
-      command: docker-compose -f /home/expensify/nagios-monitor/docker-compose.yml up -d 
+      command: docker stack deploy -c /home/expensify/nagios-monitor/docker-compose.yml nagios_monitor_stack
       tags: [nagios-monitor, docker]
+
 
 # ---
 # - name: Lock Down Network

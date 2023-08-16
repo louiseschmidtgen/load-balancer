@@ -11,9 +11,9 @@ services:
       - "5666:5666"
     stdin_open: true
     tty: true
-    networks:
-      - custom_network
-networks:
-  custom_network:
-    external:
-      name: custom_network
+#     networks:
+#       - custom_network
+# networks:
+#   custom_network:
+#     external:
+#       name: custom_network

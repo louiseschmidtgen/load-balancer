@@ -12,9 +12,9 @@ services:
       - "5667:5666" # Expose port 5666 for NRPE
     stdin_open: true
     tty: true
-    networks:
-      - custom_network
-networks:
-  custom_network:
-    external:
-      name: custom_network
+#     networks:
+#       - custom_network
+# networks:
+#   custom_network:
+#     external:
+#       name: custom_network
