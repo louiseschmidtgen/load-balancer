@@ -1,35 +1,40 @@
 ---
+
 - name: Deploy Docker Compose
   hosts: all
   become: yes
   tasks:
-    # - name: Update package manager cache
-    #   apt:
-    #     update_cache: yes
+    - name: Update package manager cache
+      apt:
+        update_cache: yes
 
-    # - name: Install Docker and Docker Compose
-    #   apt:
-    #     name: ['docker', 'docker-compose']
-    #     state: present
-    #   tags: [docker]
+    - name: Install Docker and Docker Compose (Net-tools for debugging)
+      apt:
+        name: ['docker', 'docker-compose', 'net-tools']
+        state: present
+      tags: [docker]
     # - name: Create custom network
     #   command: docker network create custom_network
+    #   failed_when: "'network with name custom_network already exists' not in result.stderr"
+    #   ignore_errors: yes
+    #   register: result
     - name: Start Docker Daemon
       become: yes
       service:
         name: docker
         state: started
 
-    - name: Create custom network
-      docker_network:
-        name: my_network
-        driver: bridge
-      tags: [docker]
+    # - name: Create custom network
+    #   docker_network:
+    #     name: custom_network
+    #     driver: bridge
+    #   tags: [docker]
 
     - name: Create expensify user
       user:
         name: expensify
         state: present
+        shell: /bin/sh
 
     - name: Add expensify user to sudo group
       user:
@@ -59,18 +64,18 @@
         key: "{{ lookup('file', '../vars/authorized_keys.txt') }}"
       become: yes
     
-    # - name: Configure SSH
-    #   lineinfile:
-    #     path: "/etc/ssh/sshd_config"
-    #     regexp: "^PasswordAuthentication"
-    #     line: "PasswordAuthentication no"
-    #   notify:
-    #     - restart sshd
-  # handlers:
-  #     - name: restart sshd
-  #       service:
-  #         name: sshd
-  #         state: restarted
+    - name: Configure SSH
+      lineinfile:
+        path: "/etc/ssh/sshd_config"
+        regexp: "^PasswordAuthentication"
+        line: "PasswordAuthentication no"
+      notify:
+        - restart sshd
+  handlers:
+      - name: restart sshd
+        service:
+          name: sshd
+          state: restarted
 
 
 - name: Deploy Server A Service
@@ -79,6 +84,9 @@
   roles:
     - server-a
   tasks:
+
+    - name: Create custom network
+      command: docker --debug network create custom_network
 
     - name: Copy server-a folder to the server
       synchronize:
@@ -89,4 +97,110 @@
     - name: Build and Deploy Server A container
       command: docker-compose -f /home/expensify/server-a/docker-compose.yml up -d 
       tags: [server-a, docker]
-    
+      register: server-a-deploy
+      until: server-a-deploy.stdout.find('Server A is running on port 8080') != -1
+      retries: 5
+      delay: 5
+      failed_when: False
+
+    - name: Log Server A Deploy
+      debug:
+        msg: "{{ server-a-deploy.stdout }}"
+- name: Deploy Server B Service
+  hosts: server-b
+  become: yes
+  roles:
+    - server-b
+  tasks:
+
+    - name: Copy server-b folder to the server
+      synchronize:
+        src: ../server-b
+        dest: /home/expensify/
+        delete: yes
+        
+    - name: Build and Deploy Server B container
+      command: docker-compose -f /home/expensify/server-b/docker-compose.yml up -d 
+      tags: [server-b, docker]
+
+
+- name: Deploy load-balancer Service
+  hosts: load-balancer
+  become: yes
+  roles:
+    - load-balancer
+  tasks:
+
+    - name: Copy load-balancer folder to the server
+      synchronize:
+        src: ../load-balancer
+        dest: /home/expensify/
+        delete: yes
+        
+    - name: Build and Deploy load-balancer container
+      command: docker-compose -f /home/expensify/load-balancer/docker-compose.yml up -d --verbose
+      tags: [load-balancer, docker]
+      environment:
+        COMPOSE_HTTP_TIMEOUT: 240  # or a higher value if needed
+
+
+- name: Deploy nagios-monitor Service
+  hosts: nagios-monitor
+  become: yes
+  roles:
+    - nagios-monitor
+  tasks:
+
+    - name: Copy nagios-monitor folder to the server
+      synchronize:
+        src: ../nagios-monitor
+        dest: /home/expensify/
+        delete: yes
+        
+    - name: Build and Deploy nagios-monitor container
+      command: docker-compose -f /home/expensify/nagios-monitor/docker-compose.yml up -d 
+      tags: [nagios-monitor, docker]
+
+# ---
+# - name: Lock Down Network
+#   hosts: all
+#   become: yes
+#   tasks:
+#     - name: Allow only one server public ssh access
+#       ufw:
+#         rule: allow
+#         proto: tcp
+#         port: 22
+#         from_ip: "{{ hostvars['nagios-monitor']['ansible_host'] }}"
+#         state: enabled
+
+#     - name: Allow SSH access from that server to others
+#       ufw:
+#         rule: allow
+#         proto: tcp
+#         port: 22
+#         from_ip: "{{ hostvars['nagios-monitor']['ansible_host'] }}"
+#         to_ip: "{{ ansible_default_ipv4.address }}"
+#         state: enabled
+
+#     - name: Allow load balancer port range
+#       ufw:
+#         rule: allow
+#         port: "{{ item }}"
+#         from_ip: "{{ hostvars['load-balancer'].ansible_host }}"
+#       loop: "{{ range(60000, 65001) }}"
+
+#     - name: Allow load balancer to access web servers
+#       ufw:
+#         rule: allow
+#         port: 80
+#         proto: tcp
+#         from_ip: "{{ hostvars['load-balancer'].ansible_host }}"
+      
+#     - name: Block unused ports
+#       ufw:
+#         rule: deny
+#         port: "{{ item }}"
+#       loop: "{{ range(1, 65536) | difference([22, 80, 60000, 60001, 65000]) }}"
+#       # Keep the ports you want to keep open (SSH, HTTP, and your load balancer port range)
+

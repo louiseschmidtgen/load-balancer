@@ -12,6 +12,8 @@ services:
       - "5668:5666" # Expose port 5666 for NRPE
     stdin_open: true
     tty: true
+    deploy:
+      replicas: 1
   server-b:
     container_name: server-b
     image: server-b
@@ -24,6 +26,8 @@ services:
       - "5667:5666" # Expose port 5666 for NRPE
     stdin_open: true
     tty: true
+    deploy:
+      replicas: 1
   load-balancer:
     container_name: load-balancer
     image: load-balancer
@@ -35,6 +39,8 @@ services:
       - "5666:5666"
     stdin_open: true
     tty: true
+    deploy:
+      replicas: 1
     depends_on:
       - server-a
       - server-b
@@ -47,6 +53,8 @@ services:
       dockerfile: Dockerfile
     stdin_open: true
     tty: true
+    deploy:
+      replicas: 1
     ports:
       - "8083:80"
       # - "5666:5666" # Expose port 5666 for NRPE

@@ -12,6 +12,8 @@ services:
       - "5668:5666" # Expose port 5666 for NRPE
     stdin_open: true
     tty: true
-networks:
-  custom_network:
-    driver: bridge
+    # networks:
+    #   - custom_network
+# networks:
+#   custom_network:
+#     driver: bridge

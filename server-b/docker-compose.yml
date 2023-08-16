@@ -4,7 +4,7 @@ services:
     container_name: server-b
     image: server-b
     build:
-      context: ./server-b
+      context: .
       dockerfile: Dockerfile
     restart: always
     ports:
@@ -12,6 +12,9 @@ services:
       - "5667:5666" # Expose port 5666 for NRPE
     stdin_open: true
     tty: true
+    networks:
+      - custom_network
 networks:
   custom_network:
-    driver: bridge
+    external:
+      name: custom_network
