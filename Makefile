@@ -1,7 +1,7 @@
 # This make file simplifies the docker-compose operations
 # This make file allows you to specify a specific container to build by passing the option c=server-a for example
 
-.PHONY: build build-no-cache up start down destroy stop restart sh ps logs
+.PHONY: build build-no-cache up start down destroy stop restart sh ps logs playbook-destroy
 
 build:
 	docker-compose -f docker-compose.yml build $(c)
@@ -56,10 +56,14 @@ playbook-server-b:
 
 playbook-all:
 	ansible-playbook -i inventory.yml playbook/deploy_containers.yml
-	ansible-playbook -i inventory.yml playbook/load-balancer.yml
-	ansible-playbook -i inventory.yml playbook/nagios-monitor.yml
-	ansible-playbook -i inventory.yml playbook/server-a.yml
-	ansible-playbook -i inventory.yml playbook/server-b.yml
+	# ansible-playbook -i inventory.yml playbook/load-balancer.yml
+	# ansible-playbook -i inventory.yml playbook/nagios-monitor.yml
+	# ansible-playbook -i inventory.yml playbook/server-a.yml
+	# ansible-playbook -i inventory.yml playbook/server-b.yml
+
+playbook-destroy:
+	ansible-playbook -i inventory.yml playbook/destroy_containers.yml
+
 
 # Test SSH connectivity to each server
 test-ssh:

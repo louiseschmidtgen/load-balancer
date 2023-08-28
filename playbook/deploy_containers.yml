@@ -89,102 +89,131 @@
 #           name: sshd
 #           state: restarted
 
-- name: Deploy Server A Service
-  hosts: server-a
+# - name: Open Docker Swarm Ports
+#   hosts: all
+#   become: yes
+#   tasks:
+#     - name: Enabling UFW, allowing all traffic
+#       community.general.ufw:
+#         state: enabled
+#         policy: allow
+
+#     - name: Set logging
+#       community.general.ufw:
+#         logging: 'on'
+
+#     - name: Allow SSH traffic
+#       community.general.ufw:
+#         rule: allow
+#         port: 22
+#         proto: tcp
+#       ignore_errors: yes  # Ignore errors in case UFW is already enabled
+
+#     - name: Allow Docker Swarm management port
+#       community.general.ufw:
+#         rule: allow
+#         port: 2377
+#         proto: tcp
+
+#     - name: Allow Docker Swarm communication port
+#       community.general.ufw:
+#         rule: allow
+#         port: 7946
+#         proto: tcp
+
+#     - name: Allow Docker Swarm overlay network traffic port
+#       community.general.ufw:
+#         rule: allow
+#         port: 4789
+#         proto: udp
+
+#     - name: Allow load balancer port range 60000-65000
+#       community.general.ufw:
+#         rule: allow
+#         port: '60000:65000'
+#         proto: tcp  # Assuming this is TCP traffic
+#       when: "'load-balancer' in inventory_hostname"  # Only apply to the load balancer
+
+#     # - name: Allow load balancer port range 60000-65000
+#     #   community.general.ufw:
+#     #     rule: allow
+#     #     port: "{{ item }}"
+#     #     proto: tcp  # Assuming this is TCP traffic
+#     #   loop: "{{ range(60000, 65001) }}"
+#     #   when: "'load-balancer' in inventory_hostname"  # Only apply to the load balancer
+
+#     - name: Allow load balancer to access web servers on port 80
+#       community.general.ufw:
+#         rule: allow
+#         port: 80
+#         proto: tcp
+#         from_ip: "{{ hostvars['load-balancer'].ansible_host }}"
+#       when: "'load-balancer' in inventory_hostname"  # Only apply to the load balancer
+
+#     - name: Reload UFW to apply rules
+#       community.general.ufw:
+#         state: enabled
+#         policy: allow
+
+#     - name: Restart Docker
+#       service:
+#         name: docker
+#         state: restarted
+
+
+- name: Add entries to /etc/hosts
+  hosts: all
   become: yes
-  roles:
-    - server-a
   tasks:
-    - name: Copy server-a folder to the server
-      synchronize:
-        src: ../server-a
-        dest: /home/expensify/
-        delete: yes
+    - name: Add entries to /etc/hosts for all hosts
+      lineinfile:
+        dest: /etc/hosts
+        line: "{{ hostvars[item]['ansible_host'] }} {{ item }}"
+        insertafter: "^127.0.0.1 localhost"
+      loop: "{{ groups['all'] }}"
+      when: "'{{ item }}' != inventory_hostname"
 
-    - name: Initialize Docker Swarm (on server-a)
-      command: docker swarm init
-        
-    - name: Deploy Docker Stack
-      command: docker stack deploy -c /home/expensify/server-a/docker-compose.yml server_a_stack
-      tags: [docker, server-a]
+# - name: Deploy Docker Swarm
+#   hosts: all
+#   become: yes
+#   tasks:
+#     - name: Initialize Docker Swarm on server-a
+#       command: docker swarm init
+#       when: "'server-a' in inventory_hostname"
 
-- name: Join Docker Swarm (on worker nodes)
-  hosts: [server-b, load-balancer, nagios-monitor]
-  become: yes
-  tasks:
-    - name: Retrieve Docker Swarm join token from manager node
-      command: docker swarm join-token -q worker
-      register: swarm_token
-      delegate_to: server-a
-      
+#     - name: Retrieve Docker Swarm join token from manager node
+#       command: docker swarm join-token -q worker 
+#       register: swarm_token
+#       delegate_to: server-a
+#       when: "'server-a' not in inventory_hostname"
 
-    - name: Join Docker Swarm on worker nodes
-      docker_swarm:
-        join_token: "{{ swarm_token.stdout.strip() }}"
-        timeout: 300
+#     # - name: Join Docker Swarm on worker nodes
+#     #   command: docker swarm join --token "{{ swarm_token.stdout.strip() }}" {{ hostvars['server-a']['ansible_default_ipv4']['address'] }}:2377
+#     #   when: "'server-a' not in inventory_hostname"
 
-
-    # - name: Join Docker Swarm on worker nodes
-    #   command: docker swarm join --token {{ swarm_token.stdout.strip() }} 3.129.63.238:2377
-
-
+#     - name: Join Docker Swarm on worker nodes
+#       docker_swarm:
+#         join_token: "{{ swarm_token.stdout.strip() }}"
+#         timeout: 600  # Adjust the timeout to a higher value, e.g., 10 minutes
+#       when: "'server-a' not in inventory_hostname"
 
 
-- name: Deploy Server B Service
-  hosts: server-b
-  become: yes
-  roles:
-    - server-b
-  tasks:
+# - name: Deploy Services
+#   hosts: [server-a, server-b, load-balancer, nagios-monitor]
+#   become: yes
+#   tasks:
+#     - name: Copy service folders to the servers
+#       synchronize:
+#         src: "../{{ inventory_hostname }}"
+#         dest: "/home/expensify/"
+#         delete: yes
 
-    - name: Copy server-b folder to the server
-      synchronize:
-        src: ../server-b
-        dest: /home/expensify/
-        delete: yes
-        
-    - name: Build and Deploy Server B container
-      command: docker stack deploy -c /home/expensify/server-b/docker-compose.yml server_b_stack
-      tags: [server-b, docker]
+#     - name: Build and Deploy service containers
+#       command: docker stack deploy -c "/home/expensify/{{ inventory_hostname }}/docker-compose.yml" "{{ inventory_hostname }}_stack"
+#       tags: [docker, inventory_hostname ]
+#       environment:
+#         COMPOSE_HTTP_TIMEOUT: 240  # or a higher value if needed
 
-
-- name: Deploy load-balancer Service
-  hosts: load-balancer
-  become: yes
-  roles:
-    - load-balancer
-  tasks:
-
-    - name: Copy load-balancer folder to the server
-      synchronize:
-        src: ../load-balancer
-        dest: /home/expensify/
-        delete: yes
-        
-    - name: Build and Deploy load-balancer container
-      command: docker stack deploy -c  /home/expensify/load-balancer/docker-compose.yml load_balancer_stack
-      tags: [load-balancer, docker]
-      environment:
-        COMPOSE_HTTP_TIMEOUT: 240  # or a higher value if needed
-
-
-
-- name: Deploy nagios-monitor Service
-  hosts: nagios-monitor
-  become: yes
-  roles:
-    - nagios-monitor
-  tasks:
-
-    - name: Copy nagios-monitor folder to the server
-      synchronize:
-        src: ../nagios-monitor
-        dest: /home/expensify/
-        delete: yes
-        
-    - name: Build and Deploy nagios-monitor container
-      command: docker stack deploy -c /home/expensify/nagios-monitor/docker-compose.yml nagios_monitor_stack
-      tags: [nagios-monitor, docker]
 
 
 # ---
