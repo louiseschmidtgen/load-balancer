@@ -22,10 +22,10 @@ jobs:
       - name: Build and Push Docker Images
         run: |
           for service in server-a server-b load-balancer nagios-monitor; do
-            cd "../$service"
+            cd "$service"
             docker buildx create --name mybuilder
             docker buildx use mybuilder
             docker buildx inspect mybuilder --bootstrap
             docker buildx build -t $service -t louiseschmidtgen/$service:$GITHUB_SHA --push .
-            cd ../../
+            cd ..
           done
