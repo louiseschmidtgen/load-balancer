@@ -29,9 +29,7 @@ jobs:
         run: |
           for service in server-a server-b load-balancer nagios-monitor; do
             cd "$service"
-            docker buildx create --name mybuilder
-            docker buildx use mybuilder
-            docker buildx inspect mybuilder --bootstrap
-            docker buildx build -t $service -t louiseschmidtgen/expensify-infrastructure-challenge:$service --push .
+            docker-compose build
+            docker-compose push
             cd ..
           done
