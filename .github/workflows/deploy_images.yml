@@ -26,6 +26,6 @@ jobs:
             docker buildx create --name mybuilder
             docker buildx use mybuilder
             docker buildx inspect mybuilder --bootstrap
-            docker buildx build -t $service -t louiseschmidtgen/$service:$GITHUB_SHA --push .
+            docker buildx build -t $service -t louiseschmidtgen/expensify-infrastructure-challenge:$service$GITHUB_SHA --push .
             cd ..
           done
