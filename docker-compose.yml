@@ -2,10 +2,7 @@ version: "3"
 services:
   server-a:
     container_name: server-a
-    image: server-a
-    build:
-      context: ./server-a
-      dockerfile: Dockerfile
+    image: louiseschmidtgen/expensify-infrastructure-challenge:server-a
     restart: always
     ports:
       - "8080:80"
@@ -14,12 +11,13 @@ services:
     tty: true
     deploy:
       replicas: 1
+      placement:
+        constraints:
+          - node.hostname == louiseschmidtgen1.remotechallenge
+
   server-b:
     container_name: server-b
-    image: server-b
-    build:
-      context: ./server-b
-      dockerfile: Dockerfile
+    image: louiseschmidtgen/expensify-infrastructure-challenge:server-b
     restart: always
     ports:
       - "8081:80"
@@ -28,12 +26,12 @@ services:
     tty: true
     deploy:
       replicas: 1
+      placement:
+        constraints:
+          - node.hostname == louiseschmidtgen2.remotechallenge
   load-balancer:
     container_name: load-balancer
-    image: load-balancer
-    build:
-      context: ./load-balancer
-      dockerfile: Dockerfile
+    image: louiseschmidtgen/expensify-infrastructure-challenge:load-balancer
     ports:
       - "60000-65000:60000-65000"
       - "5666:5666"
@@ -41,24 +39,19 @@ services:
     tty: true
     deploy:
       replicas: 1
-    depends_on:
-      - server-a
-      - server-b
+      placement:
+        constraints:
+          - node.hostname == louiseschmidtgen3.remotechallenge
   nagios-monitor:
     container_name: nagios-monitor
-    image: nagios-monitor
-    # platform: linux/arm64/v8
-    build:
-      context: ./nagios-monitor
-      dockerfile: Dockerfile
+    image: louiseschmidtgen/expensify-infrastructure-challenge:nagios-monitor
     stdin_open: true
     tty: true
     deploy:
       replicas: 1
+      placement:
+        constraints:
+          - node.hostname == louiseschmidtgen4.remotechallenge
     ports:
       - "8083:80"
       # - "5666:5666" # Expose port 5666 for NRPE
-    depends_on:
-      - server-a
-      - server-b
-      - load-balancer

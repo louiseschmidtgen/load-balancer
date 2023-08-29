@@ -1,95 +1,118 @@
 ---
 
-- name: Install Docker and Docker Compose
-  hosts: all
-  become: yes
-  tasks:
-    - name: Update package manager cache
-      apt:
-        update_cache: yes
+# - name: Install Docker and Docker Compose
+#   hosts: all
+#   become: yes
+#   tasks:
+#     - name: Update package manager cache
+#       apt:
+#         update_cache: yes
 
-    - name: Install Docker and Docker Compose (Net-tools for debugging)
-      apt:
-        name: ['docker', 'docker-compose', 'net-tools']
-        state: present
-      tags: [docker]
+#     - name: Install Docker and Docker Compose (Net-tools for debugging)
+#       apt:
+#         name: ['docker', 'docker-compose', 'net-tools']
+#         state: present
+#       tags: [docker]
 
-    - name: Start Docker Daemon
-      become: yes
-      service:
-        name: docker
-        state: started
+#     - name: Start Docker Daemon
+#       become: yes
+#       service:
+#         name: docker
+#         state: started
 
 
-- name: Create Expensify User
-  hosts: all
-  become: yes
-  tasks:
-    - name: Create expensify user
-      user:
-        name: expensify
-        state: present
-        shell: /bin/sh
+# - name: Create Expensify User
+#   hosts: all
+#   become: yes
+#   tasks:
+#     - name: Create expensify user
+#       user:
+#         name: expensify
+#         state: present
+#         shell: /bin/sh
 
-    - name: Add expensify user to sudo group
-      user:
-        name: expensify
-        groups: sudo
-        append: yes
-      become: yes
+#     - name: Add expensify user to sudo group
+#       user:
+#         name: expensify
+#         groups: sudo
+#         append: yes
+#       become: yes
 
-    - name: Add passwordless sudo entry for expensify user
-      lineinfile:
-        path: /etc/sudoers
-        line: "expensify ALL=(ALL) NOPASSWD: ALL"
-        validate: visudo -cf %s
+#     - name: Add passwordless sudo entry for expensify user
+#       lineinfile:
+#         path: /etc/sudoers
+#         line: "expensify ALL=(ALL) NOPASSWD: ALL"
+#         validate: visudo -cf %s
 
-    - name: Create .ssh directory for expensify user
-      file:
-        path: "/home/expensify/.ssh"
-        state: directory
-        owner: expensify
-        group: expensify
-        mode: '0700'
+#     - name: Create .ssh directory for expensify user
+#       file:
+#         path: "/home/expensify/.ssh"
+#         state: directory
+#         owner: expensify
+#         group: expensify
+#         mode: '0700'
 
-    - name: Ensure authorized keys are present for expensify user
-      authorized_key:
-        user: expensify
-        state: present
-        key: "{{ lookup('file', '../vars/authorized_keys.txt') }}"
-      become: yes
+#     - name: Ensure authorized keys are present for expensify user
+#       authorized_key:
+#         user: expensify
+#         state: present
+#         key: "{{ lookup('file', '../vars/authorized_keys.txt') }}"
+#       become: yes
     
-    - name: Configure SSH
-      lineinfile:
-        path: "/etc/ssh/sshd_config"
-        regexp: "^PasswordAuthentication"
-        line: "PasswordAuthentication no"
-      notify:
-        - restart sshd
-  handlers:
-      - name: restart sshd
-        service:
-          name: sshd
-          state: restarted
+#     - name: Configure SSH
+#       lineinfile:
+#         path: "/etc/ssh/sshd_config"
+#         regexp: "^PasswordAuthentication"
+#         line: "PasswordAuthentication no"
+#       notify:
+#         - restart sshd
+#   handlers:
+#       - name: restart sshd
+#         service:
+#           name: sshd
+#           state: restarted
 
-- name: Deploy Docker Swarm
-  hosts: all
+# - name: Deploy Docker Swarm
+#   hosts: all
+#   become: yes
+#   tasks:
+#     - name: Initialize Docker Swarm on server-a
+#       command: docker swarm init
+#       when: "'server-a' in inventory_hostname"
+
+#     - name: Retrieve Docker Swarm join token from manager node
+#       command: docker swarm join-token -q worker 
+#       register: swarm_token
+#       delegate_to: server-a
+#       when: "'server-a' not in inventory_hostname"
+
+#     - name: Join Docker Swarm on worker nodes
+#       command: docker swarm join --token "{{ swarm_token.stdout.strip() }}" {{ hostvars['server-a']['ansible_default_ipv4']['address'] }}:2377
+#       when: "'server-a' not in inventory_hostname"
+#       timeout: 600  # Adjust the timeout to a higher value, e.g., 10 minutes
+
+- name: Deploy Services via Swarm Leader
+  hosts: server-a
   become: yes
   tasks:
-    - name: Initialize Docker Swarm on server-a
-      command: docker swarm init
-      when: "'server-a' in inventory_hostname"
+    - name: Copy docker-compose.yml to server-a
+      synchronize:
+        src: "../docker-compose.yml"
+        dest: "/home/expensify/deploy/"
+        delete: yes
 
-    - name: Retrieve Docker Swarm join token from manager node
-      command: docker swarm join-token -q worker 
-      register: swarm_token
-      delegate_to: server-a
-      when: "'server-a' not in inventory_hostname"
-
-    - name: Join Docker Swarm on worker nodes
-      command: docker swarm join --token "{{ swarm_token.stdout.strip() }}" {{ hostvars['server-a']['ansible_default_ipv4']['address'] }}:2377
-      when: "'server-a' not in inventory_hostname"
+    - name: Deploy Docker Stack
+      command: docker stack deploy -c /home/expensify/deploy/docker-compose.yml expensify_stack
+      args:
+        chdir: /home/expensify/deploy/  # Specify the working directory
       timeout: 600  # Adjust the timeout to a higher value, e.g., 10 minutes
+
+        
+    # - name: Build and Deploy service containers
+    #   command: docker-compose -f "/home/expensify/{{ inventory_hostname }}/docker-compose.yml" up -d
+    #   tags: [docker, inventory_hostname]
+    #   environment:
+    #     COMPOSE_HTTP_TIMEOUT: 240  # or a higher value if needed
 
 # - name: Open Docker Swarm Ports
 #   hosts: all
@@ -201,21 +224,6 @@
 #       loop: "{{ groups['all'] }}"
 #       when: "'{{ item }}' != inventory_hostname"
 
-# - name: Deploy Services
-#   hosts: [server-a, server-b, load-balancer, nagios-monitor]
-#   become: yes
-#   tasks:
-#     - name: Copy service folders to the servers
-#       synchronize:
-#         src: "../{{ inventory_hostname }}"
-#         dest: "/home/expensify/"
-#         delete: yes
-
-#     - name: Build and Deploy service containers
-#       command: docker-compose -f "/home/expensify/{{ inventory_hostname }}/docker-compose.yml" up -d
-#       tags: [docker, inventory_hostname]
-#       environment:
-#         COMPOSE_HTTP_TIMEOUT: 240  # or a higher value if needed
 
 # ---
 # - name: Lock Down Network
