@@ -2,7 +2,7 @@ version: "3"
 services:
   load-balancer:
     container_name: load-balancer
-    image: load-balancer
+    image: louiseschmidtgen/expensify-infrastructure-challenge:load-balancer
     build:
       context: .
       dockerfile: Dockerfile
@@ -11,9 +11,3 @@ services:
       - "5666:5666"
     stdin_open: true
     tty: true
-#     networks:
-#       - custom_network
-# networks:
-#   custom_network:
-#     external:
-#       name: custom_network

@@ -2,7 +2,7 @@ version: "3"
 services:
   server-a:
     container_name: server-a
-    image: server-a
+    image: louiseschmidtgen/expensify-infrastructure-challenge:server-a
     build:
       context: .
       dockerfile: Dockerfile
@@ -12,8 +12,3 @@ services:
       - "5668:5666" # Expose port 5666 for NRPE
     stdin_open: true
     tty: true
-    # networks:
-    #   - custom_network
-# networks:
-#   custom_network:
-#     driver: bridge

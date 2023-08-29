@@ -2,7 +2,7 @@ version: "3"
 services:
   nagios-monitor:
     container_name: nagios-monitor
-    image: nagios-monitor
+    image: louiseschmidtgen/expensify-infrastructure-challenge:nagios-monitor
     # platform: linux/arm64/v8
     build:
       context: .
@@ -12,10 +12,3 @@ services:
     ports:
       - "8083:80"
       # - "5666:5666" # Expose port 5666 for NRPE
-#     networks:
-#       - custom_network
-
-# networks:
-#   custom_network:
-#     external:
-#       name: custom_network
