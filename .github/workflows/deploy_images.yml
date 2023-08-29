@@ -1,0 +1,31 @@
+name: Docker Image Deployment
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Build and Push Docker Images
+        run: |
+          for service in server-a server-b load-balancer nagios-monitor; do
+            cd "load-balancer/$service"
+            docker buildx create --name mybuilder
+            docker buildx use mybuilder
+            docker buildx inspect mybuilder --bootstrap
+            docker buildx build -t $service -t louiseschmidtgen/$service:$GITHUB_SHA --push .
+            cd ../../
+          done
