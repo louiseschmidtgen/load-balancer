@@ -2,15 +2,12 @@ version: "3"
 services:
   load-balancer:
     container_name: load-balancer
-    image: load-balancer
+    image: louiseschmidtgen/expensify-infrastructure-challenge:load-balancer
     build:
-      context: ./load-balancer
+      context: .
       dockerfile: Dockerfile
     ports:
       - "60000-65000:60000-65000"
       - "5666:5666"
     stdin_open: true
     tty: true
-networks:
-  custom_network:
-    driver: bridge

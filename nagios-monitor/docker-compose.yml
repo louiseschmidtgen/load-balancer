@@ -2,20 +2,13 @@ version: "3"
 services:
   nagios-monitor:
     container_name: nagios-monitor
-    image: nagios-monitor
+    image: louiseschmidtgen/expensify-infrastructure-challenge:nagios-monitor
     # platform: linux/arm64/v8
     build:
-      context: ./nagios-monitor
+      context: .
       dockerfile: Dockerfile
     stdin_open: true
     tty: true
     ports:
       - "8083:80"
       # - "5666:5666" # Expose port 5666 for NRPE
-    depends_on:
-      - server-a
-      - server-b
-      - load-balancer
-networks:
-  custom_network:
-    driver: bridge

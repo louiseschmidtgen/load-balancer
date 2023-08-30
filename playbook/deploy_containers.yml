@@ -1,35 +1,35 @@
 ---
-- name: Deploy Docker Compose
+
+- name: Install Docker and Docker Compose
   hosts: all
   become: yes
   tasks:
-    # - name: Update package manager cache
-    #   apt:
-    #     update_cache: yes
+    - name: Update package manager cache
+      apt:
+        update_cache: yes
 
-    # - name: Install Docker and Docker Compose
-    #   apt:
-    #     name: ['docker', 'docker-compose']
-    #     state: present
-    #   tags: [docker]
-    # - name: Create custom network
-    #   command: docker network create custom_network
+    - name: Install Docker and Docker Compose (Net-tools for debugging)
+      apt:
+        name: ['docker', 'docker-compose', 'net-tools']
+        state: present
+      tags: [docker]
+
     - name: Start Docker Daemon
       become: yes
       service:
         name: docker
         state: started
 
-    - name: Create custom network
-      docker_network:
-        name: my_network
-        driver: bridge
-      tags: [docker]
 
+- name: Create Expensify User
+  hosts: all
+  become: yes
+  tasks:
     - name: Create expensify user
       user:
         name: expensify
         state: present
+        shell: /bin/sh
 
     - name: Add expensify user to sudo group
       user:
@@ -59,34 +59,217 @@
         key: "{{ lookup('file', '../vars/authorized_keys.txt') }}"
       become: yes
     
-    # - name: Configure SSH
-    #   lineinfile:
-    #     path: "/etc/ssh/sshd_config"
-    #     regexp: "^PasswordAuthentication"
-    #     line: "PasswordAuthentication no"
-    #   notify:
-    #     - restart sshd
-  # handlers:
-  #     - name: restart sshd
-  #       service:
-  #         name: sshd
-  #         state: restarted
+    - name: Configure SSH
+      lineinfile:
+        path: "/etc/ssh/sshd_config"
+        regexp: "^PasswordAuthentication"
+        line: "PasswordAuthentication no"
+      notify:
+        - restart sshd
+  handlers:
+      - name: restart sshd
+        service:
+          name: sshd
+          state: restarted
 
-
-- name: Deploy Server A Service
-  hosts: server-a
+- name: Deploy Docker Swarm
+  hosts: all
   become: yes
-  roles:
-    - server-a
   tasks:
+    - name: Initialize Docker Swarm on nagios-monitor
+      command: docker swarm init
+      when: "'nagios-monitor' in inventory_hostname"
 
-    - name: Copy server-a folder to the server
+    - name: Retrieve Docker Swarm join token from manager node
+      command: docker swarm join-token -q worker 
+      register: swarm_token
+      delegate_to: nagios-monitor
+      when: "'nagios-monitor' not in inventory_hostname"
+
+    - name: Join Docker Swarm on worker nodes
+      command: docker swarm join --token "{{ swarm_token.stdout.strip() }}" {{ hostvars['nagios-monitor']['ansible_default_ipv4']['address'] }}:2377
+      when: "'nagios-monitor' not in inventory_hostname"
+      timeout: 600  # Adjust the timeout to a higher value, e.g., 10 minutes
+
+- name: Deploy Services via Swarm Leader
+  hosts: nagios-monitor
+  become: yes
+  tasks:
+    - name: Copy docker-compose.yml to nagios-monitor
       synchronize:
-        src: ../server-a
-        dest: /home/expensify/
+        src: "../docker-compose.yml"
+        dest: "/home/expensify/deploy/"
         delete: yes
-        
-    - name: Build and Deploy Server A container
-      command: docker-compose -f /home/expensify/server-a/docker-compose.yml up -d 
-      tags: [server-a, docker]
-    
+
+    - name: Deploy Docker Stack
+      command: docker stack deploy -c /home/expensify/deploy/docker-compose.yml expensify_stack
+      args:
+        chdir: /home/expensify/deploy/  # Specify the working directory
+      timeout: 600  # Adjust the timeout to a higher value, e.g., 10 minutes
+
+# - name: Configure SSH access from nagios-monitor
+#   hosts: nagios-monitor
+#   become: true
+
+#   tasks:
+#     - name: Generate SSH Key Pair
+#       ansible.builtin.shell: ssh-keygen -t rsa -b 4096 -C "nagios@nagios-monitor" -f ~/.ssh/id_rsa
+#       args:
+#         creates: ~/.ssh/id_rsa
+
+#     - name: Copy Public Key to Remote Hosts
+#       ansible.builtin.shell: cat ~/.ssh/id_rsa.pub
+#       register: public_key
+
+#     - name: Add Public Key to Authorized Keys
+#       ansible.builtin.copy:
+#         content: "{{ public_key.stdout }}"
+#         dest: "~/.ssh/authorized_keys"
+#         mode: '0600'
+#       delegate_to: "{{ item }}"
+#       loop:
+#         - server-a
+#         - server-b
+#         - load-balancer
+
+
+# - name: Open Docker Swarm Ports
+#   hosts: all
+#   become: yes
+#   tasks:
+#     - name: Enabling UFW, allowing all traffic
+#       community.general.ufw:
+#         state: enabled
+#         policy: allow
+
+#     - name: Set logging
+#       community.general.ufw:
+#         logging: 'on'
+
+#     - name: Allow SSH traffic
+#       community.general.ufw:
+#         rule: allow
+#         port: 22
+#         proto: tcp
+#       ignore_errors: yes  # Ignore errors in case UFW is already enabled
+
+#     - name: Allow Docker Swarm management port
+#       community.general.ufw:
+#         rule: allow
+#         port: 2377
+#         proto: tcp
+
+#     - name: Allow Docker Swarm communication port
+#       community.general.ufw:
+#         rule: allow
+#         port: 7946
+#         proto: tcp
+
+#     - name: Allow Docker Swarm overlay network traffic port
+#       community.general.ufw:
+#         rule: allow
+#         port: 4789
+#         proto: udp
+
+#     - name: Allow load balancer port range 60000-65000
+#       community.general.ufw:
+#         rule: allow
+#         port: '60000:65000'
+#         proto: tcp  # Assuming this is TCP traffic
+#       when: "'load-balancer' in inventory_hostname"  # Only apply to the load balancer
+
+#     # - name: Allow load balancer port range 60000-65000
+#     #   community.general.ufw:
+#     #     rule: allow
+#     #     port: "{{ item }}"
+#     #     proto: tcp  # Assuming this is TCP traffic
+#     #   loop: "{{ range(60000, 65001) }}"
+#     #   when: "'load-balancer' in inventory_hostname"  # Only apply to the load balancer
+
+#     - name: Allow load balancer to access web servers on port 80
+#       community.general.ufw:
+#         rule: allow
+#         port: 80
+#         proto: tcp
+#         from_ip: "{{ hostvars['load-balancer'].ansible_host }}"
+#       when: "'load-balancer' in inventory_hostname"  # Only apply to the load balancer
+
+#     - name: Reload UFW to apply rules
+#       community.general.ufw:
+#         state: enabled
+#         policy: allow
+
+#     - name: Restart Docker
+#       service:
+#         name: docker
+#         state: restarted
+
+# - name: Configure Inter-Host Communication
+#   hosts: all
+#   become: yes
+#   tasks:
+#     - name: Allow communication between hosts on specific ports
+#       community.general.ufw:
+#         rule: allow
+#         port: "{{ item }}"
+#         from_ip: "{{ hostvars[item].ansible_host }}"
+#       loop:
+#         - "60000-65000"
+#         - "80"
+#         - "443"
+
+# - name: Open Docker Network Ports
+#   hosts: all
+#   become: yes
+#   tasks:
+#     - name: Allow traffic from private IPs on custom network
+#       community.general.ufw:
+#         rule: allow
+#         port: "{{ item }}"
+#         from_ip: "{{ hostvars[item]['ansible_host'] }}"
+#       loop: "{{ groups['all'] }}"
+#       when: "'load-balancer' in item or 'server-a' in item or 'server-b' in item or 'nagios-monitor' in item"
+
+# ---
+# - name: Lock Down Network
+#   hosts: all
+#   become: yes
+#   tasks:
+#     - name: Allow only one server public ssh access
+#       ufw:
+#         rule: allow
+#         proto: tcp
+#         port: 22
+#         from_ip: "{{ hostvars['nagios-monitor']['ansible_host'] }}"
+#         state: enabled
+
+#     - name: Allow SSH access from that server to others
+#       ufw:
+#         rule: allow
+#         proto: tcp
+#         port: 22
+#         from_ip: "{{ hostvars['nagios-monitor']['ansible_host'] }}"
+#         to_ip: "{{ ansible_default_ipv4.address }}"
+#         state: enabled
+
+#     - name: Allow load balancer port range
+#       ufw:
+#         rule: allow
+#         port: "{{ item }}"
+#         from_ip: "{{ hostvars['load-balancer'].ansible_host }}"
+#       loop: "{{ range(60000, 65001) }}"
+
+#     - name: Allow load balancer to access web servers
+#       ufw:
+#         rule: allow
+#         port: 80
+#         proto: tcp
+#         from_ip: "{{ hostvars['load-balancer'].ansible_host }}"
+      
+#     - name: Block unused ports
+#       ufw:
+#         rule: deny
+#         port: "{{ item }}"
+#       loop: "{{ range(1, 65536) | difference([22, 80, 60000, 60001, 65000]) }}"
+#       # Keep the ports you want to keep open (SSH, HTTP, and your load balancer port range)
+

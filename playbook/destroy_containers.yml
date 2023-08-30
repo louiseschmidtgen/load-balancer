@@ -1,0 +1,33 @@
+- name: Remove Docker Containers, Stacks, and Swarms
+  hosts: all
+  become: yes
+  tasks:
+    - name: Remove all Docker containers
+      command: docker rm -f "{{ item }}"
+      with_items: "{{ lookup('pipe', 'docker ps -aq') | split('\n') | reject('eq', '') | list }}"
+      ignore_errors: yes
+
+    - name: List all Docker stacks
+      shell: docker stack ls --format "{{ '{{' }} .Name {{ '}}' }}"
+      register: stack_names
+      changed_when: false
+
+    - name: Remove all Docker stacks
+      command: docker stack rm "{{ item }}"
+      loop: "{{ stack_names.stdout_lines }}"
+      ignore_errors: yes
+
+    - name: Leave Docker Swarm
+      command: docker swarm leave --force
+      ignore_errors: yes
+      when: "'server-a' not in inventory_hostname"
+
+    - name: Remove Docker Swarm
+      command: docker swarm leave --force
+      when: "'server-a' in inventory_hostname"
+      ignore_errors: yes
+
+    - name: Remove Docker service folders
+      file:
+        path: "/home/expensify/{{ inventory_hostname }}"
+        state: absent
