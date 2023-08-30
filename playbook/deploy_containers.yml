@@ -1,136 +1,136 @@
 ---
 
-# - name: Install Docker and Docker Compose
-#   hosts: all
-#   become: yes
-#   tasks:
-#     - name: Update package manager cache
-#       apt:
-#         update_cache: yes
-
-#     - name: Install Docker and Docker Compose (Net-tools for debugging)
-#       apt:
-#         name: ['docker', 'docker-compose', 'net-tools']
-#         state: present
-#       tags: [docker]
-
-#     - name: Start Docker Daemon
-#       become: yes
-#       service:
-#         name: docker
-#         state: started
-
-
-# - name: Create Expensify User
-#   hosts: all
-#   become: yes
-#   tasks:
-#     - name: Create expensify user
-#       user:
-#         name: expensify
-#         state: present
-#         shell: /bin/sh
-
-#     - name: Add expensify user to sudo group
-#       user:
-#         name: expensify
-#         groups: sudo
-#         append: yes
-#       become: yes
-
-#     - name: Add passwordless sudo entry for expensify user
-#       lineinfile:
-#         path: /etc/sudoers
-#         line: "expensify ALL=(ALL) NOPASSWD: ALL"
-#         validate: visudo -cf %s
-
-#     - name: Create .ssh directory for expensify user
-#       file:
-#         path: "/home/expensify/.ssh"
-#         state: directory
-#         owner: expensify
-#         group: expensify
-#         mode: '0700'
-
-#     - name: Ensure authorized keys are present for expensify user
-#       authorized_key:
-#         user: expensify
-#         state: present
-#         key: "{{ lookup('file', '../vars/authorized_keys.txt') }}"
-#       become: yes
-    
-#     - name: Configure SSH
-#       lineinfile:
-#         path: "/etc/ssh/sshd_config"
-#         regexp: "^PasswordAuthentication"
-#         line: "PasswordAuthentication no"
-#       notify:
-#         - restart sshd
-#   handlers:
-#       - name: restart sshd
-#         service:
-#           name: sshd
-#           state: restarted
-
-# - name: Deploy Docker Swarm
-#   hosts: all
-#   become: yes
-#   tasks:
-#     - name: Initialize Docker Swarm on nagios-monitor
-#       command: docker swarm init
-#       when: "'nagios-monitor' in inventory_hostname"
-
-#     - name: Retrieve Docker Swarm join token from manager node
-#       command: docker swarm join-token -q worker 
-#       register: swarm_token
-#       delegate_to: nagios-monitor
-#       when: "'nagios-monitor' not in inventory_hostname"
-
-#     - name: Join Docker Swarm on worker nodes
-#       command: docker swarm join --token "{{ swarm_token.stdout.strip() }}" {{ hostvars['nagios-monitor']['ansible_default_ipv4']['address'] }}:2377
-#       when: "'nagios-monitor' not in inventory_hostname"
-#       timeout: 600  # Adjust the timeout to a higher value, e.g., 10 minutes
-
-# - name: Deploy Services via Swarm Leader
-#   hosts: nagios-monitor
-#   become: yes
-#   tasks:
-#     - name: Copy docker-compose.yml to nagios-monitor
-#       synchronize:
-#         src: "../docker-compose.yml"
-#         dest: "/home/expensify/deploy/"
-#         delete: yes
-
-#     - name: Deploy Docker Stack
-#       command: docker stack deploy -c /home/expensify/deploy/docker-compose.yml expensify_stack
-#       args:
-#         chdir: /home/expensify/deploy/  # Specify the working directory
-#       timeout: 600  # Adjust the timeout to a higher value, e.g., 10 minutes
-
-- name: Configure SSH access from nagios-monitor
-  hosts: nagios-monitor
-  become: true
-
+- name: Install Docker and Docker Compose
+  hosts: all
+  become: yes
   tasks:
-    - name: Generate SSH Key Pair
-      ansible.builtin.shell: ssh-keygen -t rsa -b 4096 -C "nagios@nagios-monitor" -f ~/.ssh/id_rsa
+    - name: Update package manager cache
+      apt:
+        update_cache: yes
+
+    - name: Install Docker and Docker Compose (Net-tools for debugging)
+      apt:
+        name: ['docker', 'docker-compose', 'net-tools']
+        state: present
+      tags: [docker]
+
+    - name: Start Docker Daemon
+      become: yes
+      service:
+        name: docker
+        state: started
+
+
+- name: Create Expensify User
+  hosts: all
+  become: yes
+  tasks:
+    - name: Create expensify user
+      user:
+        name: expensify
+        state: present
+        shell: /bin/sh
+
+    - name: Add expensify user to sudo group
+      user:
+        name: expensify
+        groups: sudo
+        append: yes
+      become: yes
+
+    - name: Add passwordless sudo entry for expensify user
+      lineinfile:
+        path: /etc/sudoers
+        line: "expensify ALL=(ALL) NOPASSWD: ALL"
+        validate: visudo -cf %s
+
+    - name: Create .ssh directory for expensify user
+      file:
+        path: "/home/expensify/.ssh"
+        state: directory
+        owner: expensify
+        group: expensify
+        mode: '0700'
+
+    - name: Ensure authorized keys are present for expensify user
+      authorized_key:
+        user: expensify
+        state: present
+        key: "{{ lookup('file', '../vars/authorized_keys.txt') }}"
+      become: yes
+    
+    - name: Configure SSH
+      lineinfile:
+        path: "/etc/ssh/sshd_config"
+        regexp: "^PasswordAuthentication"
+        line: "PasswordAuthentication no"
+      notify:
+        - restart sshd
+  handlers:
+      - name: restart sshd
+        service:
+          name: sshd
+          state: restarted
+
+- name: Deploy Docker Swarm
+  hosts: all
+  become: yes
+  tasks:
+    - name: Initialize Docker Swarm on nagios-monitor
+      command: docker swarm init
+      when: "'nagios-monitor' in inventory_hostname"
+
+    - name: Retrieve Docker Swarm join token from manager node
+      command: docker swarm join-token -q worker 
+      register: swarm_token
+      delegate_to: nagios-monitor
+      when: "'nagios-monitor' not in inventory_hostname"
+
+    - name: Join Docker Swarm on worker nodes
+      command: docker swarm join --token "{{ swarm_token.stdout.strip() }}" {{ hostvars['nagios-monitor']['ansible_default_ipv4']['address'] }}:2377
+      when: "'nagios-monitor' not in inventory_hostname"
+      timeout: 600  # Adjust the timeout to a higher value, e.g., 10 minutes
+
+- name: Deploy Services via Swarm Leader
+  hosts: nagios-monitor
+  become: yes
+  tasks:
+    - name: Copy docker-compose.yml to nagios-monitor
+      synchronize:
+        src: "../docker-compose.yml"
+        dest: "/home/expensify/deploy/"
+        delete: yes
+
+    - name: Deploy Docker Stack
+      command: docker stack deploy -c /home/expensify/deploy/docker-compose.yml expensify_stack
       args:
-        creates: ~/.ssh/id_rsa
+        chdir: /home/expensify/deploy/  # Specify the working directory
+      timeout: 600  # Adjust the timeout to a higher value, e.g., 10 minutes
 
-    - name: Copy Public Key to Remote Hosts
-      ansible.builtin.shell: cat ~/.ssh/id_rsa.pub
-      register: public_key
+# - name: Configure SSH access from nagios-monitor
+#   hosts: nagios-monitor
+#   become: true
 
-    - name: Add Public Key to Authorized Keys
-      ansible.builtin.copy:
-        content: "{{ public_key.stdout }}"
-        dest: "~/.ssh/authorized_keys"
-        mode: '0600'
-      delegate_to: "{{ item }}"
-      loop:
-        - server-a
-        - server-b
-        - load-balancer
+#   tasks:
+#     - name: Generate SSH Key Pair
+#       ansible.builtin.shell: ssh-keygen -t rsa -b 4096 -C "nagios@nagios-monitor" -f ~/.ssh/id_rsa
+#       args:
+#         creates: ~/.ssh/id_rsa
+
+#     - name: Copy Public Key to Remote Hosts
+#       ansible.builtin.shell: cat ~/.ssh/id_rsa.pub
+#       register: public_key
+
+#     - name: Add Public Key to Authorized Keys
+#       ansible.builtin.copy:
+#         content: "{{ public_key.stdout }}"
+#         dest: "~/.ssh/authorized_keys"
+#         mode: '0600'
+#       delegate_to: "{{ item }}"
+#       loop:
+#         - server-a
+#         - server-b
+#         - load-balancer
 
 
 # - name: Open Docker Swarm Ports
