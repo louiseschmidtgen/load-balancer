@@ -76,43 +76,62 @@
 #   hosts: all
 #   become: yes
 #   tasks:
-#     - name: Initialize Docker Swarm on server-a
+#     - name: Initialize Docker Swarm on nagios-monitor
 #       command: docker swarm init
-#       when: "'server-a' in inventory_hostname"
+#       when: "'nagios-monitor' in inventory_hostname"
 
 #     - name: Retrieve Docker Swarm join token from manager node
 #       command: docker swarm join-token -q worker 
 #       register: swarm_token
-#       delegate_to: server-a
-#       when: "'server-a' not in inventory_hostname"
+#       delegate_to: nagios-monitor
+#       when: "'nagios-monitor' not in inventory_hostname"
 
 #     - name: Join Docker Swarm on worker nodes
-#       command: docker swarm join --token "{{ swarm_token.stdout.strip() }}" {{ hostvars['server-a']['ansible_default_ipv4']['address'] }}:2377
-#       when: "'server-a' not in inventory_hostname"
+#       command: docker swarm join --token "{{ swarm_token.stdout.strip() }}" {{ hostvars['nagios-monitor']['ansible_default_ipv4']['address'] }}:2377
+#       when: "'nagios-monitor' not in inventory_hostname"
 #       timeout: 600  # Adjust the timeout to a higher value, e.g., 10 minutes
 
-- name: Deploy Services via Swarm Leader
-  hosts: server-a
-  become: yes
+# - name: Deploy Services via Swarm Leader
+#   hosts: nagios-monitor
+#   become: yes
+#   tasks:
+#     - name: Copy docker-compose.yml to nagios-monitor
+#       synchronize:
+#         src: "../docker-compose.yml"
+#         dest: "/home/expensify/deploy/"
+#         delete: yes
+
+#     - name: Deploy Docker Stack
+#       command: docker stack deploy -c /home/expensify/deploy/docker-compose.yml expensify_stack
+#       args:
+#         chdir: /home/expensify/deploy/  # Specify the working directory
+#       timeout: 600  # Adjust the timeout to a higher value, e.g., 10 minutes
+
+- name: Configure SSH access from nagios-monitor
+  hosts: nagios-monitor
+  become: true
+
   tasks:
-    - name: Copy docker-compose.yml to server-a
-      synchronize:
-        src: "../docker-compose.yml"
-        dest: "/home/expensify/deploy/"
-        delete: yes
-
-    - name: Deploy Docker Stack
-      command: docker stack deploy -c /home/expensify/deploy/docker-compose.yml expensify_stack
+    - name: Generate SSH Key Pair
+      ansible.builtin.shell: ssh-keygen -t rsa -b 4096 -C "nagios@nagios-monitor" -f ~/.ssh/id_rsa
       args:
-        chdir: /home/expensify/deploy/  # Specify the working directory
-      timeout: 600  # Adjust the timeout to a higher value, e.g., 10 minutes
+        creates: ~/.ssh/id_rsa
 
-        
-    # - name: Build and Deploy service containers
-    #   command: docker-compose -f "/home/expensify/{{ inventory_hostname }}/docker-compose.yml" up -d
-    #   tags: [docker, inventory_hostname]
-    #   environment:
-    #     COMPOSE_HTTP_TIMEOUT: 240  # or a higher value if needed
+    - name: Copy Public Key to Remote Hosts
+      ansible.builtin.shell: cat ~/.ssh/id_rsa.pub
+      register: public_key
+
+    - name: Add Public Key to Authorized Keys
+      ansible.builtin.copy:
+        content: "{{ public_key.stdout }}"
+        dest: "~/.ssh/authorized_keys"
+        mode: '0600'
+      delegate_to: "{{ item }}"
+      loop:
+        - server-a
+        - server-b
+        - load-balancer
+
 
 # - name: Open Docker Swarm Ports
 #   hosts: all
@@ -210,20 +229,6 @@
 #         from_ip: "{{ hostvars[item]['ansible_host'] }}"
 #       loop: "{{ groups['all'] }}"
 #       when: "'load-balancer' in item or 'server-a' in item or 'server-b' in item or 'nagios-monitor' in item"
-
-
-# - name: Add entries to /etc/hosts
-#   hosts: all
-#   become: yes
-#   tasks:
-#     - name: Add entries to /etc/hosts for all hosts
-#       lineinfile:
-#         dest: /etc/hosts
-#         line: "{{ hostvars[item]['ansible_host'] }} {{ item }}"
-#         insertafter: "^127.0.0.1 localhost"
-#       loop: "{{ groups['all'] }}"
-#       when: "'{{ item }}' != inventory_hostname"
-
 
 # ---
 # - name: Lock Down Network

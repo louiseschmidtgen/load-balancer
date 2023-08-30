@@ -41,7 +41,7 @@ services:
       replicas: 1
       placement:
         constraints:
-          - node.hostname == louiseschmidtgen3.remotechallenge
+          - node.hostname == louiseschmidtgen4.remotechallenge
   nagios-monitor:
     container_name: nagios-monitor
     image: louiseschmidtgen/expensify-infrastructure-challenge:nagios-monitor
@@ -51,7 +51,7 @@ services:
       replicas: 1
       placement:
         constraints:
-          - node.hostname == louiseschmidtgen4.remotechallenge
+          - node.hostname == louiseschmidtgen3.remotechallenge
     ports:
       - "8083:80"
       # - "5666:5666" # Expose port 5666 for NRPE
