@@ -107,31 +107,36 @@
         chdir: /home/expensify/deploy/  # Specify the working directory
       timeout: 600  # Adjust the timeout to a higher value, e.g., 10 minutes
 
-# - name: Configure SSH access from nagios-monitor
-#   hosts: nagios-monitor
-#   become: true
+- name: Configure SSH access from nagios-monitor
+  hosts: nagios-monitor
+  become: true
+  tasks:
+    - name: Generate an OpenSSH keypair with the default values (4096 bits, rsa)
+      openssh_keypair:
+        path: /home/expensify/.ssh/id_rsa
+        owner: expensify
+        group: expensify
 
-#   tasks:
-#     - name: Generate SSH Key Pair
-#       ansible.builtin.shell: ssh-keygen -t rsa -b 4096 -C "nagios@nagios-monitor" -f ~/.ssh/id_rsa
-#       args:
-#         creates: ~/.ssh/id_rsa
+    - name: Fix owner of the generated pub key
+      file:
+        path: /home/expensify/.ssh/id_rsa.pub
+        owner: expensify
+        group: expensify
 
-#     - name: Copy Public Key to Remote Hosts
-#       ansible.builtin.shell: cat ~/.ssh/id_rsa.pub
-#       register: public_key
+    - name: Fetch Nagios host public SSH key
+      ansible.builtin.shell: cat /home/expensify/.ssh/id_rsa.pub
+      register: nagios_public_key
 
-#     - name: Add Public Key to Authorized Keys
-#       ansible.builtin.copy:
-#         content: "{{ public_key.stdout }}"
-#         dest: "~/.ssh/authorized_keys"
-#         mode: '0600'
-#       delegate_to: "{{ item }}"
-#       loop:
-#         - server-a
-#         - server-b
-#         - load-balancer
-
+    - name: Add Nagios host public SSH key to authorized_keys of other hosts
+      ansible.builtin.copy:
+        content: "{{ nagios_public_key.stdout }}"
+        dest: "/home/expensify/.ssh/authorized_keys"
+        mode: '0600'
+      delegate_to: "{{ item }}"
+      loop:
+        - server-a
+        - server-b
+        - load-balancer
 
 # - name: Open Docker Swarm Ports
 #   hosts: all
