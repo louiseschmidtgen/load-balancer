@@ -138,139 +138,115 @@
         - server-b
         - load-balancer
 
-# - name: Open Docker Swarm Ports
-#   hosts: all
-#   become: yes
-#   tasks:
-#     - name: Enabling UFW, allowing all traffic
-#       community.general.ufw:
-#         state: enabled
-#         policy: allow
+- name: Open necessary ports and protocols using UFW
+  hosts: all
+  become: true
+  tasks:
+    - name: Enable UFW
+      community.general.ufw:
+        state: enabled
+        policy: allow
 
-#     - name: Set logging
-#       community.general.ufw:
-#         logging: 'on'
+    - name: Allow SSH traffic # for now otherwise i can't run my ansible scripts
+      community.general.ufw:
+        rule: allow
+        port: 22
+        proto: tcp
+      ignore_errors: yes  # Ignore errors in case UFW is already enabled
 
-#     - name: Allow SSH traffic
-#       community.general.ufw:
-#         rule: allow
-#         port: 22
-#         proto: tcp
-#       ignore_errors: yes  # Ignore errors in case UFW is already enabled
+    - name: Allow Swarm Ports TCP
+      community.general.ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      loop:
+        - "2376"
+        - "2377"
+        - "7946"
 
-#     - name: Allow Docker Swarm management port
-#       community.general.ufw:
-#         rule: allow
-#         port: 2377
-#         proto: tcp
+    - name: Allow Swarm Ports UDP
+      community.general.ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: udp
+      loop:
+        - "7946"
+        - "4789"
 
-#     - name: Allow Docker Swarm communication port
-#       community.general.ufw:
-#         rule: allow
-#         port: 7946
-#         proto: tcp
-
-#     - name: Allow Docker Swarm overlay network traffic port
-#       community.general.ufw:
-#         rule: allow
-#         port: 4789
-#         proto: udp
-
-#     - name: Allow load balancer port range 60000-65000
-#       community.general.ufw:
-#         rule: allow
-#         port: '60000:65000'
-#         proto: tcp  # Assuming this is TCP traffic
-#       when: "'load-balancer' in inventory_hostname"  # Only apply to the load balancer
-
-#     # - name: Allow load balancer port range 60000-65000
-#     #   community.general.ufw:
-#     #     rule: allow
-#     #     port: "{{ item }}"
-#     #     proto: tcp  # Assuming this is TCP traffic
-#     #   loop: "{{ range(60000, 65001) }}"
-#     #   when: "'load-balancer' in inventory_hostname"  # Only apply to the load balancer
-
-#     - name: Allow load balancer to access web servers on port 80
-#       community.general.ufw:
-#         rule: allow
-#         port: 80
-#         proto: tcp
-#         from_ip: "{{ hostvars['load-balancer'].ansible_host }}"
-#       when: "'load-balancer' in inventory_hostname"  # Only apply to the load balancer
-
-#     - name: Reload UFW to apply rules
-#       community.general.ufw:
-#         state: enabled
-#         policy: allow
-
-#     - name: Restart Docker
-#       service:
-#         name: docker
-#         state: restarted
-
-# - name: Configure Inter-Host Communication
-#   hosts: all
-#   become: yes
-#   tasks:
-#     - name: Allow communication between hosts on specific ports
-#       community.general.ufw:
-#         rule: allow
-#         port: "{{ item }}"
-#         from_ip: "{{ hostvars[item].ansible_host }}"
-#       loop:
-#         - "60000-65000"
-#         - "80"
-#         - "443"
-
-# - name: Open Docker Network Ports
-#   hosts: all
-#   become: yes
-#   tasks:
-#     - name: Allow traffic from private IPs on custom network
-#       community.general.ufw:
-#         rule: allow
-#         port: "{{ item }}"
-#         from_ip: "{{ hostvars[item]['ansible_host'] }}"
-#       loop: "{{ groups['all'] }}"
-#       when: "'load-balancer' in item or 'server-a' in item or 'server-b' in item or 'nagios-monitor' in item"
-
-# ---
-# - name: Lock Down Network
-#   hosts: all
-#   become: yes
-#   tasks:
-#     - name: Allow only one server public ssh access
-#       ufw:
-#         rule: allow
-#         proto: tcp
-#         port: 22
-#         from_ip: "{{ hostvars['nagios-monitor']['ansible_host'] }}"
-#         state: enabled
-
-#     - name: Allow SSH access from that server to others
-#       ufw:
-#         rule: allow
-#         proto: tcp
-#         port: 22
-#         from_ip: "{{ hostvars['nagios-monitor']['ansible_host'] }}"
-#         to_ip: "{{ ansible_default_ipv4.address }}"
-#         state: enabled
-
-#     - name: Allow load balancer port range
-#       ufw:
-#         rule: allow
-#         port: "{{ item }}"
-#         from_ip: "{{ hostvars['load-balancer'].ansible_host }}"
-#       loop: "{{ range(60000, 65001) }}"
-
-#     - name: Allow load balancer to access web servers
-#       ufw:
-#         rule: allow
-#         port: 80
-#         proto: tcp
-#         from_ip: "{{ hostvars['load-balancer'].ansible_host }}"
+    - name: Allow Load-Balancer (TCP)
+      community.general.ufw:
+        rule: allow
+        port: "60000:65000" 
+        proto: tcp
+      when: "'load-balancer' in inventory_hostname" 
+    
+    - name: Open port 5666 for NRPE plugin on load-balancer (TCP)
+      community.general.ufw:
+        rule: allow
+        port: 5666
+        proto: tcp
+        from_ip: "{{ hostvars['nagios-monitor'].ansible_host }}"
+      when: "'load-balancer' in inventory_hostname"
       
+    - name: Open port 8080 for accessing hosted content on server-a
+      community.general.ufw:
+        rule: allow
+        port: 8080
+        proto: tcp
+        from_ip: "{{ hostvars['load-balancer'].ansible_host }}"
+      when: "'server-a' in inventory_hostname"
+      
+    - name: Open port 8081 for accessing hosted content on server-b
+      community.general.ufw:
+        rule: allow
+        port: 8081
+        proto: tcp
+        from_ip: "{{ hostvars['load-balancer'].ansible_host }}"
+      when: "'server-b' in inventory_hostname"
+
+    - name: Open port 8083 for Nagios dashboard access
+      community.general.ufw:
+        rule: allow
+        port: 8083
+        proto: tcp
+      when: "'nagios-monitor' in inventory_hostname"
+
+    - name: Open port 5668 for NRPE plugin on server-a
+      community.general.ufw:
+        rule: allow
+        port: 5668
+        proto: tcp
+        from_ip: "{{ hostvars['nagios-monitor'].ansible_host }}"
+      when: "'server-a' in inventory_hostname"
+
+    - name: Open port 5667 for NRPE plugin on server-b
+      community.general.ufw:
+        rule: allow
+        port: 5667
+        proto: tcp
+        from_ip: "{{ hostvars['nagios-monitor'].ansible_host }}"
+      when: "'server-b' in inventory_hostname"
+
+    # - name: Reload UFW to apply rules
+    #   community.general.ufw:
+    #     state: enabled
+    #     policy: allow
+
+    # - name: Restart Docker
+    #   service:
+    #     name: docker
+    #     state: restarted
+
+# - name: Configure UFW limit SSH Access
+#   hosts: [server-a, server-b, load-balancer ]
+#   tasks:
+#     - name: Allow SSH access from anywhere
+#       community.general.ufw:
+#         rule: allow
+#         from_ip: nagios_monitor_ip
+#         port: 22
+#         proto: tcp
+
 #     - name: Block unused ports
 #       ufw:
 #         rule: deny
