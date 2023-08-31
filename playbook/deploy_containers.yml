@@ -20,7 +20,6 @@
         name: docker
         state: started
 
-
 - name: Create Expensify User
   hosts: all
   become: yes
@@ -227,16 +226,6 @@
         from_ip: "{{ hostvars['nagios-monitor'].ansible_host }}"
       when: "'server-b' in inventory_hostname"
 
-    # - name: Reload UFW to apply rules
-    #   community.general.ufw:
-    #     state: enabled
-    #     policy: allow
-
-    # - name: Restart Docker
-    #   service:
-    #     name: docker
-    #     state: restarted
-
 # - name: Configure UFW limit SSH Access
 #   hosts: [server-a, server-b, load-balancer ]
 #   tasks:
@@ -246,11 +235,3 @@
 #         from_ip: nagios_monitor_ip
 #         port: 22
 #         proto: tcp
-
-#     - name: Block unused ports
-#       ufw:
-#         rule: deny
-#         port: "{{ item }}"
-#       loop: "{{ range(1, 65536) | difference([22, 80, 60000, 60001, 65000]) }}"
-#       # Keep the ports you want to keep open (SSH, HTTP, and your load balancer port range)
-
