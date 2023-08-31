@@ -1,6 +1,9 @@
 # Load-Balancer
 This is a solution for a load-balancer infrastructure challenge. The infrastructure includes four Ubuntu 20.04 servers. Two servers are hosting content, a third is loadbalancing traffic to the servers and the fourth server is monitoring the entire infrastructure. One of the servers is additionaly acting as a bastion host to lock down the network.
 
+### Write-Up
+You may find a write of of my Project [here](https://docs.google.com/document/d/1xrE0HY7WX5aUQcmjpvI-_XuNi_gHHAlr7sypYD9LI5Y/edit?usp=sharing). It goes into detail about the steps I took to solve the challenge.
+
 ### The Challenge
 In this challenge, you have four Ubuntu 20.04 servers with IP addresses 34.219.237.131, 35.86.172.0, 54.212.209.5, and 35.87.133.164. Your task is to create a miniature environment with the following components:
 
